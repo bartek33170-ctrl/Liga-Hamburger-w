@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Liga Hamburgerów</title>
+<style>
+:root{color-scheme:dark;--bg:#090909;--card:#141414;--gold:#d6a73a;--text:#fff;--muted:#aaa;--line:#292929}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:Arial,Helvetica,sans-serif;color:var(--text)}
+.app{min-height:100vh;background:linear-gradient(180deg,#090909,#111 45%,#090909)}
+header{padding:28px 18px;text-align:center;border-bottom:1px solid var(--line);background:#0b0b0b}
+h1{margin:0;font-size:clamp(28px,7vw,52px);letter-spacing:2px;color:var(--gold);font-weight:900}
+header p{margin:8px 0 0;color:var(--muted)}
+main{max-width:1000px;margin:auto;padding:22px 14px 50px}
+.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:18px}
+.tab{border:1px solid #333;background:#171717;color:#ddd;border-radius:10px;padding:11px 15px;font-weight:700;cursor:pointer;white-space:nowrap}
+.tab.active{background:var(--gold);color:#090909;border-color:var(--gold)}
+.section{display:none}
+.section.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 10px 30px #0005}
+.card h2{margin:0 0 14px;font-size:21px}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:12px 8px;border-bottom:1px solid var(--line);text-align:center}
+.table th:first-child,.table td:first-child{text-align:left}
+.table th{color:var(--muted);font-size:12px;text-transform:uppercase}
+.team{font-weight:800}
+.team.main{color:var(--gold)}
+.badge{display:inline-block;min-width:25px;padding:4px 7px;border-radius:7px;background:#242424;font-weight:800}
+.match{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}
+.match:last-child{border:0}
+.teams{flex:1;text-align:center;font-weight:800}
+.score{font-size:21px;color:var(--gold);font-weight:900;white-space:nowrap}
+.date{font-size:12px;color:var(--muted);text-align:center;margin-bottom:4px}
+.empty{text-align:center;color:var(--muted);padding:22px}
+.notice{border-left:4px solid var(--gold);padding:12px 14px;background:#1a160c;border-radius:8px;color:#ddd}
+.admin{display:none}
+.form{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.form input,.form select{width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#0d0d0d;color:#fff}
+.form .wide{grid-column:span 2}
+.login{display:flex;gap:8px;flex-wrap:wrap}
+.login input{padding:10px;border-radius:8px;border:1px solid #333;background:#0d0d0d;color:#fff}
+.small{font-size:12px;color:var(--muted)}
+footer{text-align:center;color:#777;padding:25px;font-size:12px}
+@media(max-width:600px){
+.table th:nth-child(4),.table td:nth-child(4),.table th:nth-child(5),.table td:nth-child(5){display:none}
+.match{font-size:14px}
+.score{font-size:18px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+<h1>LIGA HAMBURGERÓW</h1>
+<p>Wyniki • Tabela • Terminarz • Drużyny</p>
+</header>
+<main>
+<nav class="tabs">
+<button class="tab active" data-tab="table">🏆 Tabela</button>
+<button class="tab" data-tab="results">⚽ Wyniki</button>
+<button class="tab" data-tab="schedule">📅 Terminarz</button>
+<button class="tab" data-tab="teams">👥 Drużyny</button>
+<button class="tab" data-tab="admin">🔐 Admin</button>
+</nav><section id="table" class="section active">
+  <div class="card">
+    <h2>Aktualna tabela</h2>
+    <div class="notice">
+      Po wpisaniu wyniku tabela automatycznie przelicza punkty i kolejność.
+    </div>
+
+    <table class="table" style="margin-top:14px">
+      <thead>
+        <tr>
+          <th># Drużyna</th>
+          <th>M</th>
+          <th>Pkt</th>
+          <th>+/-</th>
+          <th>W-R-P</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<section id="results" class="section">
+  <div class="card">
+    <h2>Ostatnie wyniki</h2>
+    <div id="resultsList"></div>
+  </div>
+</section>
+
+<section id="schedule" class="section">
+  <div class="card">
+    <h2>Terminarz</h2>
+    <div id="scheduleList"></div>
+  </div>
+</section>
+
+<section id="teams" class="section">
+  <div class="card">
+    <h2>Drużyny</h2>
+    <div id="teamList"></div>
+  </div>
+</section>
+
+<section id="admin" class="section">
+  <div class="card" id="loginCard">
+    <h2>🔐 Panel administratora</h2>
+    <p class="small">Tylko dla organizatora ligi.</p>
+
+    <div class="login">
+      <input id="pin" type="password" placeholder="Kod administratora">
+      <button class="tab active" onclick="login()">Zaloguj</button>
+    </div>
+
+    <p id="loginMsg" class="small"></p>
+  </div>
+
+  <div class="card admin" id="adminPanel">
+    <h2>⚙️ Edycja ligi</h2>
+
+    <p class="small">Dodaj wynik:</p>
+
+    <div class="form">
+      <select id="ra"></select>
+      <input id="rs" placeholder="np. 3:1">
+      <select id="rb"></select>
+      <input id="rd" type="date">
+      <button class="tab active wide" onclick="addResult()">Dodaj wynik</button>
+    </div>
+
+    <p class="small" style="margin-top:18px">
+      Dodaj mecz do terminarza:
+    </p>
+
+    <div class="form">
+      <select id="sa"></select>
+      <input id="st" type="time">
+      <select id="sb"></select>
+      <input id="sd" type="date">
+      <button class="tab active wide" onclick="addSchedule()">Dodaj do terminarza</button>
+    </div>
+
+    <button class="tab" style="margin-top:15px" onclick="logout()">
+      Wyloguj
+    </button>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  LIGA HAMBURGERÓW • 2026
+</footer>
+
+</div>
+
+<script>
+const SUPABASE_URL='https://faeealosunyinxrwxiyq.supabase.co';
+const SUPABASE_KEY='sb_publishable_-3I_CAjhYQxRLWvEQMN47w_Z5z6t8-8';
+const ADMIN_CODE='ligahamburgerow26/27';
+
+const teams=[
+  'FC BANANY',
+  'SP TUCHÓW 5b',
+  'FC TUCHÓW',
+  'KLASZTOR TUCHÓW',
+  'SIGMA TEAM',
+  'FC SZÓSTA 6C',
+  '67 TEAM'
+];
+
+let matches=[];
+let table=[];
+let results=[];
+let schedule=[];async function api(path,options={}){
+  const r=await fetch(SUPABASE_URL+'/rest/v1/'+path,{
+    ...options,
+    headers:{
+      apikey:SUPABASE_KEY,
+      Authorization:'Bearer '+SUPABASE_KEY,
+      'Content-Type':'application/json',
+      ...(options.headers||{})
+    }
+  });
+  if(!r.ok)throw new Error(await r.text());
+  return r.status===204?null:r.json();
+}
+
+function fill(id){
+  document.getElementById(id).innerHTML=
+    teams.map(t=>'<option>'+t+'</option>').join('');
+}
+
+function rebuild(){
+  table=teams.map(name=>({
+    name,m:0,p:0,gd:0,w:0,r:0,l:0
+  }));
+
+  matches
+    .filter(x=>x.status==='finished'&&x.home_score!==null)
+    .forEach(x=>{
+      const A=table.find(t=>t.name===x.home_team);
+      const B=table.find(t=>t.name===x.away_team);
+      const a=Number(x.home_score);
+      const b=Number(x.away_score);
+
+      A.m++;
+      B.m++;
+      A.gd+=a-b;
+      B.gd+=b-a;
+
+      if(a>b){
+        A.w++;
+        A.p+=3;
+        B.l++;
+      }else if(a<b){
+        B.w++;
+        B.p+=3;
+        A.l++;
+      }else{
+        A.r++;
+        B.r++;
+        A.p++;
+        B.p++;
+      }
+    });
+
+  results=matches
+    .filter(x=>x.status==='finished')
+    .sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+
+  schedule=matches
+    .filter(x=>x.status==='scheduled')
+    .sort((a,b)=>(a.match_date||'').localeCompare(b.match_date||''));
+}
+
+function render(){
+  table.sort((a,b)=>
+    b.p-a.p||b.gd-a.gd||b.w-a.w
+  );
+
+  document.getElementById('tableBody').innerHTML=
+    table.map((t,i)=>
+      '<tr>'+
+      '<td><span class="badge">'+(i+1)+'</span> '+
+      '<span class="team '+(t.name==='FC TUCHÓW'?'main':'')+'">'+
+      t.name+
+      '</span></td>'+
+      '<td>'+t.m+'</td>'+
+      '<td><b>'+t.p+'</b></td>'+
+      '<td>'+(t.gd>0?'+':'')+t.gd+'</td>'+
+      '<td>'+t.w+'-'+t.r+'-'+t.l+'</td>'+
+      '</tr>'
+    ).join('');
+
+  document.getElementById('teamList').innerHTML=
+    teams.map(t=>
+      '<div class="match">'+
+      '<span class="team '+(t==='FC TUCHÓW'?'main':'')+'">'+
+      t+
+      '</span><span>⚽</span></div>'
+    ).join('');
+
+  document.getElementById('resultsList').innerHTML=
+    results.length
+    ?results.map(x=>
+      '<div class="match">'+
+      '<div><div class="date">'+
+      (x.match_date||'')+
+      '</div><div class="teams">'+
+      x.home_team+' — '+x.away_team+
+      '</div></div><div class="score">'+
+      x.home_score+':'+x.away_score+
+      '</div></div>'
+    ).join('')
+    :'<div class="empty">Brak rozegranych meczów.</div>';
+
+  document.getElementById('scheduleList').innerHTML=
+    schedule.length
+    ?schedule.map(x=>
+      '<div class="match">'+
+      '<div><div class="date">'+
+      (x.match_date||'Termin do ustalenia')+
+      '</div><div class="teams">'+
+      x.home_team+' — '+x.away_team+
+      '</div></div><div class="score">'+
+      (x.match_time?x.match_time.slice(0,5):'--:--')+
+      '</div></div>'
+    ).join('')
+    :'<div class="empty">Terminarz nie został jeszcze dodany.</div>';
+}
+
+async function load(){
+  try{
+    matches=await api('matches?select=*&order=created_at.desc');
+    rebuild();
+    render();
+  }catch(e){
+    console.error(e);
+    document.getElementById('resultsList').innerHTML=
+      '<div class="empty">Nie udało się połączyć z bazą danych.</div>';
+  }
+}document.querySelectorAll('.tab').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
+
+    b.classList.add('active');
+
+    const section=document.getElementById(b.dataset.tab);
+    if(section) section.classList.add('active');
+  });
+});
+
+['ra','rb','sa','sb'].forEach(fill);
+
+load();
+
+setInterval(load,10000);
+</script>
+</body>
+</html>
